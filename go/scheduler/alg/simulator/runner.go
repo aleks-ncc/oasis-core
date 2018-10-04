@@ -500,7 +500,9 @@ func adversaryFactory(acnf *AdversaryConfig, ts TransactionSource) TransactionSo
 	if err != nil {
 		panic("adversaryFactory could not construct AdversarialTransactionSource")
 	}
-	fmt.Printf("Will inject adversarial transactions\n")
+	if Verbosity > 2 {
+		fmt.Printf("Will inject adversarial transactions\n")
+	}
 	return ats
 }
 

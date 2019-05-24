@@ -261,7 +261,7 @@ func (n *Node) checkIncomingQueueLocked(force bool) {
 	defer batchSpan.Finish()
 
 	// Try Scheduling a batch
-	res, err := n.cfg.Algorithm.ScheduleTx(n.runtimeID, batch)
+	res, err := n.cfg.Algorithm.ScheduleTx(n.commonNode.RuntimeID, batch)
 	if err != nil {
 		n.logger.Error("failed to schedule a batch",
 			"err", err,
@@ -279,7 +279,7 @@ func (n *Node) checkIncomingQueueLocked(force bool) {
 		)
 
 		// Commit batch to storage.
-		if err = n.storage.Insert(ctx, batch.MarshalCBOR(), 2, storage.InsertOptions{}); err != nil {
+		if err = n.commonNode.Storage.Insert(ctx, batch.MarshalCBOR(), 2, storage.InsertOptions{}); err != nil {
 			spanInsert.Finish()
 			n.logger.Error("failed to commit input batch to storage",
 				"err", err,
@@ -311,7 +311,7 @@ func (n *Node) checkIncomingQueueLocked(force bool) {
 		n.transitionLocked(StateWaitingForFinalize{})
 
 		if epoch.IsComputeLeader() || epoch.IsComputeWorker() {
-			n.computeNode.HandleBatchFromTransactionScheduler(batchSchedule.Batch, n.currentBlock.Header)
+			n.computeNode.HandleBatchFromTransactionSchedulerLocked(batchSchedule.Batch, batchSpanCtx)
 		}
 
 	}
@@ -336,7 +336,7 @@ func (n *Node) worker() {
 	defer (n.cancelCtx)()
 
 	// Initialize scheduling alg
-	if err := n.cfg.Algorithm.Initialize(); err == nil {
+	if err := n.cfg.Algorithm.Initialize(); err != nil {
 		n.logger.Error("failed to initialize tx scheduling algorithm",
 			"err", err,
 		)

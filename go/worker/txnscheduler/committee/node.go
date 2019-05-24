@@ -21,6 +21,7 @@ import (
 	"github.com/oasislabs/ekiden/go/worker/common/committee"
 	"github.com/oasislabs/ekiden/go/worker/common/p2p"
 	computeCommittee "github.com/oasislabs/ekiden/go/worker/compute/committee"
+	txnScheduler "github.com/oasislabs/ekiden/go/worker/txnscheduler/algorithm/api"
 )
 
 var (
@@ -44,6 +45,7 @@ var (
 
 // Config is a committee node configuration.
 type Config struct {
+	Algorithm         txnScheduler.Algorithm
 	MaxQueueSize      uint64
 	MaxBatchSize      uint64
 	MaxBatchSizeBytes uint64
@@ -253,52 +255,65 @@ func (n *Node) checkIncomingQueueLocked(force bool) {
 		incomingQueueSize.With(n.getMetricLabels()).Set(float64(n.incomingQueue.Size()))
 	}()
 
-	// Leader node opens a new parent span for batch processing.
 	batchSpan := opentracing.StartSpan("TakeBatchFromQueue(batch)",
 		opentracing.Tag{Key: "batch", Value: batch},
 	)
 	defer batchSpan.Finish()
-	batchSpanCtx := batchSpan.Context()
 
-	spanInsert, ctx := tracing.StartSpanWithContext(n.ctx, "Insert(batch)",
-		opentracing.Tag{Key: "batch", Value: batch},
-		opentracing.ChildOf(batchSpanCtx),
-	)
-
-	// Commit batch to storage.
-	if err = n.commonNode.Storage.Insert(ctx, batch.MarshalCBOR(), 2, storage.InsertOptions{}); err != nil {
-		spanInsert.Finish()
-		n.logger.Error("failed to commit input batch to storage",
-			"err", err,
-		)
-		return
-	}
-	spanInsert.Finish()
-
-	// Dispatch batch to group.
-	var batchID hash.Hash
-	batchID.From(batch)
-
-	spanPublish := opentracing.StartSpan("Publish(batchHash, header)",
-		opentracing.Tag{Key: "batchHash", Value: batchID},
-		opentracing.Tag{Key: "header", Value: n.commonNode.CurrentBlock.Header},
-		opentracing.ChildOf(batchSpanCtx),
-	)
-	err = n.commonNode.Group.PublishBatch(batchSpanCtx, batchID, n.commonNode.CurrentBlock.Header)
+	// Try Scheduling a batch
+	res, err := n.cfg.Algorithm.ScheduleTx(n.runtimeID, batch)
 	if err != nil {
-		spanPublish.Finish()
-		n.logger.Error("failed to publish batch to committee",
+		n.logger.Error("failed to schedule a batch",
 			"err", err,
 		)
 		return
 	}
-	crash.Here(crashPointLeaderBatchPublishAfter)
-	spanPublish.Finish()
 
-	n.transitionLocked(StateWaitingForFinalize{})
+	for _, batchSchedule := range res.Scheduled {
+		// Leader node opens a new parent span for batch processing.
+		batchSpanCtx := batchSpan.Context()
 
-	if epoch.IsComputeLeader() || epoch.IsComputeWorker() {
-		n.computeNode.HandleBatchFromTransactionSchedulerLocked(batch, batchSpanCtx)
+		spanInsert, ctx := tracing.StartSpanWithContext(n.ctx, "Insert(batch)",
+			opentracing.Tag{Key: "batch", Value: batchSchedule.Batch},
+			opentracing.ChildOf(batchSpanCtx),
+		)
+
+		// Commit batch to storage.
+		if err = n.storage.Insert(ctx, batch.MarshalCBOR(), 2, storage.InsertOptions{}); err != nil {
+			spanInsert.Finish()
+			n.logger.Error("failed to commit input batch to storage",
+				"err", err,
+			)
+			return
+		}
+		spanInsert.Finish()
+
+		// Dispatch batch to group.
+		var batchID hash.Hash
+		batchID.From(batchSchedule.Batch)
+
+		spanPublish := opentracing.StartSpan("Publish(batchHash, header)",
+			opentracing.Tag{Key: "batchHash", Value: batchID},
+			opentracing.Tag{Key: "header", Value: n.commonNode.CurrentBlock.Header},
+			opentracing.ChildOf(batchSpanCtx),
+		)
+		err := n.commonNode.Group.PublishBatch(batchSpanCtx, batchID, n.commonNode.CurrentBlock.Header)
+		if err != nil {
+			spanPublish.Finish()
+			n.logger.Error("failed to publish batch to committee",
+				"err", err,
+			)
+			return
+		}
+		crash.Here(crashPointLeaderBatchPublishAfter)
+		spanPublish.Finish()
+
+		n.transitionLocked(StateWaitingForFinalize{})
+
+		if epoch.IsComputeLeader() || epoch.IsComputeWorker() {
+			n.computeNode.HandleBatchFromTransactionScheduler(batchSchedule.Batch, n.currentBlock.Header)
+		}
+
 	}
 
 	processOk = true
@@ -319,6 +334,14 @@ func (n *Node) worker() {
 
 	defer close(n.quitCh)
 	defer (n.cancelCtx)()
+
+	// Initialize scheduling alg
+	if err := n.cfg.Algorithm.Initialize(); err == nil {
+		n.logger.Error("failed to initialize tx scheduling algorithm",
+			"err", err,
+		)
+		return
+	}
 
 	// Check incoming queue every MaxBatchTimeout.
 	incomingQueueTicker := time.NewTicker(n.cfg.MaxBatchTimeout)

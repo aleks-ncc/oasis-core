@@ -122,6 +122,7 @@ func newTestNode(t *testing.T) *testNode {
 
 	viper.Set("datadir", dataDir)
 	viper.Set("log.file", filepath.Join(dataDir, "test-node.log"))
+	viper.Set("worker.txnscheduler.leader.algo", "testing_algorithm")
 	for _, kv := range testNodeConfig {
 		viper.Set(kv.key, kv.value)
 	}

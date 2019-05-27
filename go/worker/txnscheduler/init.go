@@ -1,7 +1,6 @@
 package txnscheduler
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -10,8 +9,7 @@ import (
 	workerCommon "github.com/oasislabs/ekiden/go/worker/common"
 	"github.com/oasislabs/ekiden/go/worker/compute"
 	"github.com/oasislabs/ekiden/go/worker/registration"
-	txnScheduler "github.com/oasislabs/ekiden/go/worker/txnscheduler/algorithm/api"
-	trivialScheduler "github.com/oasislabs/ekiden/go/worker/txnscheduler/algorithm/trivial"
+	txnSchedulerAlgoRegistry "github.com/oasislabs/ekiden/go/worker/txnscheduler/algorithm/registry"
 	"github.com/oasislabs/ekiden/go/worker/txnscheduler/committee"
 )
 
@@ -45,12 +43,9 @@ func New(
 		})
 	}
 
-	var txAlgo txnScheduler.Algorithm
-	switch viper.GetString(cfgAlgo) {
-	case "trivial":
-		txAlgo = &trivialScheduler.Trivial{}
-	default:
-		return nil, fmt.Errorf("invalid transaction scheduler algorithm: %s", viper.GetString(cfgAlgo))
+	txAlgo, err := txnSchedulerAlgoRegistry.NewAlgorithm(viper.GetString(cfgAlgo))
+	if err != nil {
+		return nil, err
 	}
 
 	maxQueueSize := uint64(viper.GetInt(cfgMaxQueueSize))

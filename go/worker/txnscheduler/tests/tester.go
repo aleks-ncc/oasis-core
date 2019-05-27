@@ -3,6 +3,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	roothash "github.com/oasislabs/ekiden/go/roothash/api"
 	"github.com/oasislabs/ekiden/go/roothash/api/block"
 	"github.com/oasislabs/ekiden/go/worker/txnscheduler"
+	"github.com/oasislabs/ekiden/go/worker/txnscheduler/algorithm/api"
 	"github.com/oasislabs/ekiden/go/worker/txnscheduler/committee"
 )
 
@@ -50,6 +52,10 @@ func WorkerImplementationTests(
 		testQueueCall(t, runtimeID, stateCh, rtNode, roothash)
 	})
 
+	t.Run("QueueCallFails", func(t *testing.T) {
+		testQueueCallFails(t, runtimeID, stateCh, rtNode, roothash)
+	})
+
 	// TODO: Add more tests.
 }
 
@@ -68,6 +74,8 @@ func testQueueCall(
 	rtNode *committee.Node,
 	roothash roothash.Backend,
 ) {
+	ResetTestTxnScheduler()
+
 	// Subscribe to roothash blocks.
 	blocksCh, sub, err := roothash.WatchBlocks(runtimeID)
 	require.NoError(t, err, "WatchBlocks")
@@ -107,6 +115,56 @@ func testQueueCall(
 	case <-time.After(recvTimeout):
 		t.Fatalf("failed to receive block")
 	}
+
+	ResetTestTxnScheduler()
+}
+
+func testQueueCallFails(
+	t *testing.T,
+	runtimeID signature.PublicKey,
+	stateCh <-chan committee.NodeState,
+	rtNode *committee.Node,
+	roothash roothash.Backend,
+) {
+	ResetTestTxnScheduler()
+	SetTestTxnSchedulerScheduleTxOverride(func(runtimeID signature.PublicKey, txs runtime.Batch) (api.ScheduleResult, error) {
+		return api.ScheduleResult{}, fmt.Errorf("expected error")
+	})
+
+	// Subscribe to roothash blocks.
+	blocksCh, sub, err := roothash.WatchBlocks(runtimeID)
+	require.NoError(t, err, "WatchBlocks")
+	defer sub.Close()
+
+	select {
+	case <-blocksCh:
+	case <-time.After(recvTimeout):
+		t.Fatalf("failed to receive block")
+	}
+
+	// Queue a test call.
+	testCall := []byte("hello world")
+	err = rtNode.QueueCall(context.Background(), testCall)
+	require.NoError(t, err, "QueueCall")
+
+	// Node should transition to WaitingForFinalize state.
+	waitForNodeTransition(t, stateCh, committee.WaitingForFinalize)
+
+	// Node should transition to WaitingForBatch state and a block should be
+	// finalized containing our batch.
+	waitForNodeTransition(t, stateCh, committee.WaitingForBatch)
+
+	select {
+	case blk := <-blocksCh:
+		// Check that correct block was generated.
+		var batchHash hash.Hash
+		batch := runtime.Batch([][]byte{testCall})
+		batchHash.From(batch)
+	case <-time.After(recvTimeout):
+		t.Fatalf("failed to receive block")
+	}
+
+	ResetTestTxnScheduler()
 }
 
 func waitForNodeTransition(t *testing.T, stateCh <-chan committee.NodeState, expectedState committee.StateName) {

@@ -1,0 +1,84 @@
+
+// The hash() accessor returns the treeHash of the node, i.e.,
+// treeHash(lhash, vhash, rhash) where lhash, vhash, and rhash are
+// the hash values for the left subtree, the hash of the value at this
+// node, and the right subtree respectively.  If there is no value,
+// vhash is all zeros.  The l() and r() accessors use memory pointers
+// if the child node has been loaded into memory, or use the stored
+// hash values to fetch them from persistent storage first (and
+// populate memory pointer) if not.  If the lhash (or rhash) are all
+// zeros, then l() (or r()) returns the null pointer.
+//
+// Z2vec is a binary vector which can be used as key values internally.
+//
+// Proof is just a list of Hash values or NewTreeProof values with a concatenation operator.
+// A NewTreeProof is a proof variant where there are no peer hashes.
+
+executeApplyProof(root Hash, log WriteLog) (newRoot Hash, proof Proof) {
+  proof = NewProof()
+  newRoot = recursiveApply(getNode(root), Z2vec(), log, &proof)  // new Z2vec is an empty vector
+}
+
+// pre: len(changes) > 0
+recursiveApply(subtree *Node, nodePath Z2vec, changes WriteLog, pf *Proof) *Node {
+  if subtree == null {
+    pf.append(ProofTraverseStop{})
+    return newTreeFromChanges(changes)
+  }
+
+  changes_l = filterKeysAndOmitLeadingBit(changes, 0)
+  if len(changes_l) == 0 {
+    pf.append(ProofTraversePeer{subtree.lhash()})  // may be all-zeros
+    subtree_l = subtree.l()  // may be null
+  } else {
+    subtree_l = recursiveApply(subtree.l(), nodePath.append(0), changes_l, pf)
+  }
+
+  vhash := subtree.vhash  // may be a None indication
+  if nodePath in changes.keys() {
+    pf.append(ProofTraverseOldValue(vhash))
+    vhash = store(changes[nodePath])  // store in associative lookup table, return hash
+  }
+
+  changes_r = filterKeysAndOmitLeadingBit(changes, 1)
+  if len(changes_r) == 0 {
+    pf.append(subtree.rhash)  // may be all-zeros
+    subtree_r = subtree.r()  // may be null
+  } else {
+    subtree_r = recursiveApply(subtree.r(), nodePath.append(1), changes_r, pf)
+  }
+
+  newSubtree = &Node{subtree_l.hash(), vhash, subtree_r.hash()}
+  return newSubtree
+}
+
+recursiveCheck(nodePath Z2vec, changes WriteLog, pf *Proof) Hash {
+  if subtree == null {
+    return newTreeFromChanges(changes).hash()
+  }
+
+  changes_l = filterKeysAndOmitLeadingBit(changes, 0)
+  if len(changes_l) == 0 {
+    lhash = pf.read()
+  } else if subtree.l() == null {
+    subtree_l = newTreeFromChanges(changes_l)
+  } else {
+    subtree_l = recursiveApply(subtree.l(), nodePath.append(0), changes_l, pf)
+  }
+
+  vhash := subtree.vhash  // may be a None indication
+  if nodePath in changes.keys() {
+    vhash = store(changes[nodePath])  // store in associative lookup table, return hash
+  }
+
+  changes_r = filterKeysAndOmitLeadingBit(changes, 1)
+  if len(changes_r) == 0 {
+    pf.append(subtree.rhash)  // may be all-zeros
+    subtree_r = subtree.r()  // may be null
+  } else {
+    subtree_r = recursiveApply(subtree.r(), nodePath.append(1), changes_r, pf)
+  }
+
+  newSubtree = &Node{subtree_l.hash(), vhash, subtree_r.hash()}
+  return newSubtree
+}

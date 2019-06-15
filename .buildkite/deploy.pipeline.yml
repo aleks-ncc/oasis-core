@@ -32,7 +32,7 @@ steps:
     command: .buildkite/scripts/set_docker_tag_meta_data.sh
 
   - label: Build artifacts (master branches only)
-    branches: master
+    branches: master kryha
     command:
       - .buildkite/scripts/setup_gitconfig.sh
       - eval $(ssh-agent -s)
@@ -48,7 +48,7 @@ steps:
       <<: *docker_plugin_configuration
 
   - label: Build production-track artifacts (master branches only)
-    branches: master
+    branches: master kryha
     command:
       - .buildkite/scripts/setup_gitconfig.sh
       - eval $(ssh-agent -s)
@@ -67,30 +67,14 @@ steps:
   - wait
 
   - label: Build docker image (master branches only)
-    branches: master
+    branches: master kryha
     command:
       - .buildkite/scripts/build_tag_push_deployment_image.sh context.tar.gz
     env:
       DEPLOYMENT_VARIANT: testing
 
   - label: Build production-track docker image (master branches only)
-    branches: master
+    branches: master kryha
     command:
       - .buildkite/scripts/build_tag_push_deployment_image.sh context-prod.tar.gz
 
-  - block: Human approval required to deploy docker image
-    branches: "*"
-    prompt: |
-      Clicking "OK" below will unblock this step and
-      permit the docker image to be tagged as latest
-      which means that the image will be used as a
-      base image for all runtime builds.
-
-      NOTE: This will NOT deploy the image to any testnet.
-
-  - label: Deploy docker image (master branches only)
-    branches: master
-    command:
-      - .buildkite/scripts/promote_deployment_image_to.sh latest-beta
-    env:
-      DEPLOYMENT_VARIANT: testing

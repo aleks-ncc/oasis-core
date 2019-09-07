@@ -55,6 +55,7 @@ steps:
 
   - label: Trigger runtime build
     branches: ravenac95/testing/custom-build
+    async: true
     trigger: "runtime-ethereum"
     build:
       message: "Triggering test build for ravenac95"

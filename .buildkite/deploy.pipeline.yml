@@ -51,3 +51,12 @@ steps:
     branches: ravenac95/testing/custom-build
     command:
       - .buildkite/scripts/build_tag_push_deployment_image.sh context-prod.tar.gz
+      - .buildkite/scripts/promote_deployment_image_to.sh ravenac95-testing
+
+  - label: Trigger runtime build
+    branches: ravenac95/testing/custom-build
+    trigger: "runtime-ethereum"
+    build:
+      message: "Triggering test build for ravenac95"
+      commit: HEAD
+      branch: ravenac95/testing/custom-build

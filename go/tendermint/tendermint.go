@@ -46,6 +46,8 @@ const (
 	cfgCoreListenAddress   = "tendermint.core.listen_address"
 	cfgCoreExternalAddress = "tendermint.core.external_address"
 
+	cfgTendermintRPCListenAddress = "tendermint.rpc.listen_address"
+
 	cfgConsensusTimeoutCommit      = "tendermint.consensus.timeout_commit"
 	cfgConsensusSkipTimeoutCommit  = "tendermint.consensus.skip_timeout_commit"
 	cfgConsensusEmptyBlockInterval = "tendermint.consensus.empty_block_interval"
@@ -388,7 +390,7 @@ func (t *tendermintService) lazyInit() error {
 	// lowercasing the whole string is ok.
 	tenderConfig.P2P.Seeds = strings.ToLower(viper.GetString(cfgP2PSeeds))
 	tenderConfig.P2P.AddrBookStrict = !viper.GetBool(cfgDebugP2PAddrBookLenient)
-	tenderConfig.RPC.ListenAddress = ""
+	tenderConfig.RPC.ListenAddress = viper.GetString(cfgTendermintRPCListenAddress)
 
 	tendermintPV, err := crypto.LoadOrGeneratePrivVal(tendermintDataDir, t.nodeSigner)
 	if err != nil {
@@ -708,6 +710,7 @@ func newLogAdapter(suppressDebug bool) tmlog.Logger {
 func init() {
 	Flags.String(cfgCoreListenAddress, "tcp://0.0.0.0:26656", "tendermint core listen address")
 	Flags.String(cfgCoreExternalAddress, "", "tendermint address advertised to other nodes")
+	Flags.String(cfgTendermintRPCListenAddress, "", "tendermint rpc listen address")
 	Flags.Duration(cfgConsensusTimeoutCommit, 1*time.Second, "tendermint commit timeout")
 	Flags.Bool(cfgConsensusSkipTimeoutCommit, false, "skip tendermint commit timeout")
 	Flags.Duration(cfgConsensusEmptyBlockInterval, 0*time.Second, "tendermint empty block interval")

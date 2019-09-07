@@ -268,7 +268,7 @@ steps:
   - label: ":rocket: Deploy image"
     trigger: ekiden-deploy-image
     async: true
-    branches: master devnet2
+    branches: master devnet2 ravenac95/testing/custom-build
     build:
       message: "${BUILDKITE_MESSAGE}"
       commit: "${BUILDKITE_COMMIT}"

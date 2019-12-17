@@ -16,6 +16,34 @@ type storageService struct {
 	debugRejectUpdates bool
 }
 
+func (s *storageService) AuthFunc(ctx context.Context, fullMethodName string, req interface{}) (context.Context, error) {
+	// TODO: if all request implemented a Namespace() interface, this could be
+	// extracted into a CheckAccessAllow method call. But in that case, endpoints
+	// without any polices defined would fail, so we should refactor existing
+	// policies to be explicitly defined for all endpoints (current readonly
+	// endpoints don't have any policies defined, and access check is skipped).
+	//
+	// Also in that case this implementation could be moved into the
+	// DynamicRuntimePolicyChecker struct, meaning all GRPC endpoints using it,
+	// would automatically get the AuthFunc defined.
+	switch r := req.(type) {
+	case *api.ApplyRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.Namespace)
+	case *api.ApplyBatchRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.Namespace)
+	case *api.MergeRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.Namespace)
+	case *api.MergeBatchRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.Namespace)
+	case *api.GetDiffRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.StartRoot.Namespace)
+	case *api.GetCheckpointRequest:
+		return ctx, s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), r.Root.Namespace)
+	default:
+		return ctx, nil
+	}
+}
+
 func (s *storageService) checkUpdateAllowed(ctx context.Context, method string, ns common.Namespace) error {
 	if s.debugRejectUpdates {
 		return errors.New("storage: rejecting update operations")
@@ -97,9 +125,6 @@ func (s *storageService) MergeBatch(ctx context.Context, request *api.MergeBatch
 }
 
 func (s *storageService) GetDiff(ctx context.Context, request *api.GetDiffRequest) (api.WriteLogIterator, error) {
-	if err := s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action("GetDiff"), request.StartRoot.Namespace); err != nil {
-		return nil, err
-	}
 	if err := s.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}
@@ -107,9 +132,6 @@ func (s *storageService) GetDiff(ctx context.Context, request *api.GetDiffReques
 }
 
 func (s *storageService) GetCheckpoint(ctx context.Context, request *api.GetCheckpointRequest) (api.WriteLogIterator, error) {
-	if err := s.w.grpcPolicy.CheckAccessAllowed(ctx, accessctl.Action("GetCheckpoint"), request.Root.Namespace); err != nil {
-		return nil, err
-	}
 	if err := s.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}

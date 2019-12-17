@@ -430,6 +430,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		logAdapter.unaryLogger,
 		grpc_opentracing.UnaryServerInterceptor(),
 		serverUnaryErrorMapper,
+		authUnaryInterceptor(), // TODO: stream interceptor as well.
 	}
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		logAdapter.streamLogger,
@@ -441,6 +442,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		unaryInterceptors = append(unaryInterceptors, wrapper.unaryInterceptor)
 		streamInterceptors = append(streamInterceptors, wrapper.streamInterceptor)
 	}
+
 	sOpts = append(sOpts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
 	sOpts = append(sOpts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
 	sOpts = append(sOpts, grpc.MaxRecvMsgSize(maxRecvMsgSize))

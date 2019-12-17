@@ -79,10 +79,12 @@ type pingServer struct {
 }
 
 func (s *pingServer) Ping(ctx context.Context, query *PingQuery) (*PingResponse, error) {
-	if err := s.CheckAccessAllowed(ctx, "Ping", query.Namespace); err != nil {
-		return nil, err
-	}
 	return &PingResponse{}, nil
+}
+
+func (s *pingServer) AuthFunc(ctx context.Context, fullMethodName string, req interface{}) (context.Context, error) {
+	q := req.(*PingQuery)
+	return ctx, s.CheckAccessAllowed(ctx, accessctl.Action(fullMethodName), q.Namespace)
 }
 
 type PingClient interface {
@@ -150,6 +152,10 @@ func TestAccessPolicy(t *testing.T) {
 	serverCertPool := x509.NewCertPool()
 	serverCertPool.AddCert(serverX509Cert)
 
+	// Create a new pingServer with a new RuntimePolicyChecker.
+	policyChecker := NewDynamicRuntimePolicyChecker()
+	server := &pingServer{policyChecker}
+
 	// Create a new gRPC server.
 	serverConfig := &ServerConfig{
 		Name:          host,
@@ -157,15 +163,14 @@ func TestAccessPolicy(t *testing.T) {
 		Certificate:   serverTLSCert,
 		CustomOptions: []grpc.ServerOption{grpc.CustomCodec(&CBORCodec{})},
 	}
+
 	grpcServer, err := NewServer(serverConfig)
 	require.NoErrorf(err, "Failed to create a new gRPC server: %v", err)
 
 	runtimeID, err := testNs.ToRuntimeID()
 	require.NoErrorf(err, "Failed to obtain runtime ID from namespace: %v", testNs)
 
-	// Create a new pingServer with a new RuntimePolicyChecker.
-	policyChecker := NewDynamicRuntimePolicyChecker()
-	server := &pingServer{policyChecker}
+	// Add policies.
 	policy := accessctl.NewPolicy()
 	policyChecker.SetAccessPolicy(policy, runtimeID)
 
@@ -209,7 +214,7 @@ func TestAccessPolicy(t *testing.T) {
 	_, err = client.Ping(ctx, &PingQuery{testNs})
 	require.EqualError(
 		err,
-		"rpc error: code = PermissionDenied desc = grpc: calling Ping method for runtime 06956b25ae9fabb8295ce6879f0995c7ad02f8b2a1b22cbade17960a70d765ea not allowed for client CN=oasis-node",
+		"rpc error: code = PermissionDenied desc = grpc: calling /PingServer/Ping method for runtime 06956b25ae9fabb8295ce6879f0995c7ad02f8b2a1b22cbade17960a70d765ea not allowed for client CN=oasis-node",
 		"Calling Ping with an empty access policy should not be allowed",
 	)
 	require.Equal(codes.PermissionDenied, status.Code(err), "returned gRPC error should be PermissionDenied")
@@ -217,7 +222,7 @@ func TestAccessPolicy(t *testing.T) {
 	// Add a policy rule to allow the client to call Ping.
 	policy = accessctl.NewPolicy()
 	subject := accessctl.SubjectFromX509Certificate(clientX509Cert)
-	policy.Allow(subject, "Ping")
+	policy.Allow(subject, "/PingServer/Ping")
 	policyChecker.SetAccessPolicy(policy, runtimeID)
 
 	res, err := client.Ping(ctx, &PingQuery{testNs})

@@ -43,6 +43,9 @@ func initDefaultIdentity(dataDir string) (*identity.Identity, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "identity LoadOrGenerate")
 	}
+	logger.Debug("%%% here's us",
+		"node_id", id.NodeSigner.Public(),
+	)
 	return id, nil
 }
 

@@ -225,7 +225,7 @@ func (app *rootHashApplication) prepareNewCommittees(
 
 	// NOTE: There will later be multiple executor committees.
 	var executorCommittees []*scheduler.Committee
-	xc1, err := schedState.Committee(scheduler.KindExecutor, rtID)
+	xc1, err := schedState.Committee(scheduler.KindComputeExecutor, rtID)
 	if err != nil {
 		app.logger.Error("checkCommittees: failed to get executor committee from scheduler",
 			"err", err,
@@ -286,7 +286,7 @@ func (app *rootHashApplication) prepareNewCommittees(
 
 	mergePool = new(commitment.Pool)
 	committeeIDParts = append(committeeIDParts, []byte("merge committee follows"))
-	mergeCommittee, err := schedState.Committee(scheduler.KindMerge, rtID)
+	mergeCommittee, err := schedState.Committee(scheduler.KindComputeMerge, rtID)
 	if err != nil {
 		app.logger.Error("checkCommittees: failed to get merge committee from scheduler",
 			"err", err,

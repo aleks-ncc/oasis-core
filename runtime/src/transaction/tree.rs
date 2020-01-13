@@ -17,13 +17,17 @@ use crate::{
 // NOTE: This should be kept in sync with go/runtime/transaction/transaction.go.
 
 #[derive(Debug)]
+#[repr(u8)]
 enum ArtifactKind {
-    Input,
-    Output,
+    _Invalid = 0,
+    Input = ARTIFACT_KIND_INPUT,
+    Output = ARTIFACT_KIND_OUTPUT,
 }
 
-const ARTIFACT_KIND_INPUT: u8 = 0;
-const ARTIFACT_KIND_OUTPUT: u8 = 1;
+// Workaround because rust doesn't support `as u8` inside match arms.
+// See https://github.com/rust-lang/rust/issues/44266
+const ARTIFACT_KIND_INPUT: u8 = 1;
+const ARTIFACT_KIND_OUTPUT: u8 = 2;
 
 /// Key format used for transaction artifacts.
 #[derive(Debug)]
@@ -48,6 +52,7 @@ impl KeyFormat for TxnKeyFormat {
         match self.kind {
             ArtifactKind::Input => atoms.push(vec![ARTIFACT_KIND_INPUT]),
             ArtifactKind::Output => atoms.push(vec![ARTIFACT_KIND_OUTPUT]),
+            ArtifactKind::_Invalid => panic!("transaction: will not encode invalid artifact kind"),
         }
     }
 
@@ -277,7 +282,7 @@ mod test {
         let (_, root_hash) = tree.commit(Context::background()).unwrap();
         assert_eq!(
             format!("{:?}", root_hash),
-            "4cc8bb6bdb377cc7f1ff8fe972004e1d66fa2c6726ec9e5f870865c190b6a47d",
+            "c65f4e8bd5314c26f245337a859ad244f4b1544acf60ef334cf0d0eadb47363b",
         );
     }
 }

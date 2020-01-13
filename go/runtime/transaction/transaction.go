@@ -24,6 +24,8 @@ var (
 	// cannot be found.
 	ErrNotFound = errors.New("transaction: not found")
 
+	errInvalidArtifactKind = errors.New("transaction: invalid artifact kind cannot be marshalled")
+
 	errMalformedArtifactKind = errors.New("transaction: malformed artifact kind")
 )
 
@@ -35,15 +37,23 @@ const prefetchArtifactCount uint16 = 20000
 type artifactKind uint8
 
 const (
+	// kindInvalid is invalid (not set) artifact kind and should never be stored.
+	kindInvalid artifactKind = 0
 	// kindInput is the input artifact kind.
-	kindInput artifactKind = 0
+	kindInput artifactKind = 1
 	// kindOutput is the output artifact kind.
-	kindOutput artifactKind = 1
+	kindOutput artifactKind = 2
 )
 
 // MarshalBinary encodes an artifact kind into binary form.
 func (ak artifactKind) MarshalBinary() (data []byte, err error) {
 	data = []byte{uint8(ak)}
+
+	// kindInvalid should not be marshaleld.
+	if ak == kindInvalid {
+		return nil, errInvalidArtifactKind
+	}
+
 	return
 }
 
@@ -57,6 +67,9 @@ func (ak *artifactKind) UnmarshalBinary(data []byte) error {
 	switch kind {
 	case kindInput:
 	case kindOutput:
+	case kindInvalid:
+		// kindInvalid should not be unmarshalled.
+		return errInvalidArtifactKind
 	default:
 		return errMalformedArtifactKind
 	}
@@ -68,7 +81,8 @@ func (ak *artifactKind) UnmarshalBinary(data []byte) error {
 
 var (
 	// txnKeyFmt is the key format used for transaction artifacts.
-	txnKeyFmt = keyformat.New('T', &hash.Hash{}, artifactKind(0))
+	// The artifactKind parameter is needed to compute the enum size in bytes. We put some marshallable value there.
+	txnKeyFmt = keyformat.New('T', &hash.Hash{}, artifactKind(1))
 	// tagKeyFmt is the key format used for emitted tags.
 	//
 	// This is kept separate so that clients can query only tags they are
@@ -254,7 +268,9 @@ func (t *Tree) GetTransactions(ctx context.Context) ([]*Transaction, error) {
 	curTx.Empty()
 
 	var txs []*Transaction
+	i := 0
 	for it.Seek(txnKeyFmt.Encode()); it.Valid(); it.Next() {
+		i++
 		var decHash hash.Hash
 		var decKind artifactKind
 		if !txnKeyFmt.Decode(it.Key(), &decHash, &decKind) {

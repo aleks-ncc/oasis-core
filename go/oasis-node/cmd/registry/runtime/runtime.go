@@ -274,6 +274,10 @@ func runtimeFromFlags() (*registry.Runtime, signature.Signer, error) {
 			)
 			return nil, nil, fmt.Errorf("invalid runtime flags")
 		}
+	case registry.KindInvalid:
+		{
+			return nil, nil, fmt.Errorf("cannot create runtime with invalid kind")
+		}
 	}
 
 	// TODO: Support root upload when registering.

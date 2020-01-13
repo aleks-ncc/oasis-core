@@ -56,7 +56,7 @@ func SchedulerImplementationTests(t *testing.T, name string, backend api.Backend
 				}
 
 				switch committee.Kind {
-				case api.KindExecutor:
+				case api.KindComputeExecutor:
 					require.Nil(executor, "haven't seen an executor committee yet")
 					executor = committee
 					require.Len(committee.Members, expectedExecutor, "committee has all executor nodes")
@@ -64,7 +64,7 @@ func SchedulerImplementationTests(t *testing.T, name string, backend api.Backend
 					require.Nil(storage, "haven't seen a storage committee yet")
 					require.Len(committee.Members, expectedStorage, "committee has all storage nodes")
 					storage = committee
-				case api.KindTransactionScheduler:
+				case api.KindComputeTxnScheduler:
 					require.Nil(transactionScheduler, "haven't seen a transaction scheduler committee yet")
 					require.Len(committee.Members, expectedTransactionScheduler, "committee has all transaction scheduler nodes")
 					transactionScheduler = committee
@@ -88,13 +88,13 @@ func SchedulerImplementationTests(t *testing.T, name string, backend api.Backend
 		require.NoError(err, "GetCommittees")
 		for _, committee := range committees {
 			switch committee.Kind {
-			case api.KindExecutor:
+			case api.KindComputeExecutor:
 				require.EqualValues(executor, committee, "fetched executor committee is identical")
 				executor = nil
 			case api.KindStorage:
 				require.EqualValues(storage, committee, "fetched storage committee is identical")
 				storage = nil
-			case api.KindTransactionScheduler:
+			case api.KindComputeTxnScheduler:
 				require.EqualValues(transactionScheduler, committee, "fetched transaction scheduler committee is identical")
 				transactionScheduler = nil
 			}
@@ -165,21 +165,25 @@ func requireValidCommitteeMembers(t *testing.T, committee *api.Committee, runtim
 		}
 	}
 
-	if committee.Kind.NeedsLeader() {
+	needsLeader, err := committee.Kind.NeedsLeader()
+	require.NoError(err, "needsLeader returns correctly")
+	if needsLeader {
 		require.Equal(1, leaders, fmt.Sprintf("%s committee should have a leader", committee.Kind))
 	} else {
 		require.Equal(0, leaders, fmt.Sprintf("%s committee shouldn't have a leader", committee.Kind))
 	}
 	switch committee.Kind {
-	case api.KindExecutor:
+	case api.KindComputeExecutor:
 		require.EqualValues(runtime.Executor.GroupSize, workers, "executor committee should have the correct number of workers")
 		require.EqualValues(runtime.Executor.GroupBackupSize, backups, "executor committee should have the correct number of backup workers")
-	case api.KindMerge:
+	case api.KindComputeMerge:
 		require.EqualValues(runtime.Merge.GroupSize, workers, "merge committee should have the correct number of workers")
 		require.EqualValues(runtime.Merge.GroupBackupSize, backups, "merge committee should have the correct number of backup workers")
-	case api.KindStorage, api.KindTransactionScheduler:
+	case api.KindStorage, api.KindComputeTxnScheduler:
 		numCommitteeMembersWithoutLeader := len(committee.Members)
-		if committee.Kind.NeedsLeader() {
+		needsLeader, err := committee.Kind.NeedsLeader()
+		require.NoError(err, "needsLeader returns correctly")
+		if needsLeader {
 			numCommitteeMembersWithoutLeader--
 		}
 		require.EqualValues(numCommitteeMembersWithoutLeader, workers, fmt.Sprintf("all %s committee members except for the leader (if present) should be workers", committee.Kind))

@@ -33,7 +33,7 @@ var (
 type RuntimeKind uint32
 
 const (
-	// KindCompute is a generic executor runtime.
+	// KindCompute is a generic compute runtime.
 	KindCompute RuntimeKind = 0
 
 	// KindKeyManager is a key manager runtime.

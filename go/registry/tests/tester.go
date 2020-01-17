@@ -1099,6 +1099,9 @@ func NewTestRuntime(seed []byte, entity *TestEntity, isKeyManager bool) (*TestRu
 			MaxBatchSizeBytes: 1000,
 		},
 		Storage: api.StorageParameters{GroupSize: 3},
+		AdmissionPolicy: api.RuntimeAdmissionPolicy{
+			AnyNode: &api.AnyNodeRuntimeAdmissionPolicy{},
+		},
 	}
 	if entity != nil {
 		rt.Signer = entity.Signer

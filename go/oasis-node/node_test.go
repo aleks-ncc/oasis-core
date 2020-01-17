@@ -20,6 +20,7 @@ import (
 	"github.com/oasislabs/oasis-core/go/common/entity"
 	cmnGrpc "github.com/oasislabs/oasis-core/go/common/grpc"
 	consensusAPI "github.com/oasislabs/oasis-core/go/consensus/api"
+	"github.com/oasislabs/oasis-core/go/consensus/tendermint"
 	consensusTests "github.com/oasislabs/oasis-core/go/consensus/tests"
 	epochtime "github.com/oasislabs/oasis-core/go/epochtime/api"
 	epochtimeTests "github.com/oasislabs/oasis-core/go/epochtime/tests"
@@ -75,6 +76,7 @@ var (
 		{supplementarysanity.CfgEnabled, true},
 		{supplementarysanity.CfgInterval, 1},
 		{cmdCommon.CfgDebugAllowTestKeys, true},
+		{tendermint.CfgCoreListenAddress, "tcp://127.0.0.2:26656"},
 	}
 
 	testRuntime = &registry.Runtime{

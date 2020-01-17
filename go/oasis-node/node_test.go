@@ -64,6 +64,7 @@ var (
 		value interface{}
 	}{
 		{"log.level.default", "DEBUG"},
+		{"log.format", "JSON"},
 		{cmdCommonFlags.CfgConsensusValidator, true},
 		{cmdCommonFlags.CfgDebugDontBlameOasis, true},
 		{storage.CfgBackend, "badger"},

@@ -32,6 +32,8 @@ const (
 	testRuntimeNodeExpiration epochtime.EpochTime = 100
 )
 
+var entityNodeSeed = []byte("testRegistryEntityNodes")
+
 // RegistryImplementationTests exercises the basic functionality of a
 // registry backend.
 //
@@ -42,12 +44,12 @@ func RegistryImplementationTests(t *testing.T, backend api.Backend, consensus co
 
 	// We need a runtime ID as otherwise the registry will not allow us to
 	// register nodes for roles which require runtimes.
-	var runtimeID common.Namespace
+	var runtimeID, runtimeEWID common.Namespace
 	t.Run("Runtime", func(t *testing.T) {
-		runtimeID = testRegistryRuntime(t, backend, consensus)
+		runtimeID, runtimeEWID = testRegistryRuntime(t, backend, consensus)
 	})
 
-	testRegistryEntityNodes(t, backend, consensus, runtimeID)
+	testRegistryEntityNodes(t, backend, consensus, runtimeID, runtimeEWID)
 }
 
 func testRegistryEntityNodes( // nolint: gocyclo
@@ -55,9 +57,10 @@ func testRegistryEntityNodes( // nolint: gocyclo
 	backend api.Backend,
 	consensus consensusAPI.Backend,
 	runtimeID common.Namespace,
+	runtimeEWID common.Namespace,
 ) {
 	// Generate the entities used for the test cases.
-	entities, err := NewTestEntities([]byte("testRegistryEntityNodes"), 3)
+	entities, err := NewTestEntities(entityNodeSeed, 3)
 	require.NoError(t, err, "NewTestEntities")
 
 	timeSource := consensus.EpochTime().(epochtime.SetableBackend)
@@ -229,6 +232,19 @@ func testRegistryEntityNodes( // nolint: gocyclo
 					t.Fatalf("failed to receive node registration event")
 				}
 			}
+		}
+
+		nodeRuntimesEW := []*node.Runtime{&node.Runtime{ID: runtimeEWID}}
+		whitelistedNodes, err := entities[1].NewTestNodes(1, 1, nodeRuntimesEW, epoch+2)
+		require.NoError(err, "NewTestNodes whitelisted")
+		for _, v := range whitelistedNodes {
+			require.NoError(v.Register(consensus, v.SignedValidReRegistration), "register node from whitelisted entity")
+		}
+		nonWhitelistedNodes, err := entities[0].NewTestNodes(1, 1, nodeRuntimesEW, epoch+2)
+		require.NoError(err, "NewTestNodes non-whitelisted")
+		require.NoError(err, "NewTestNodes whitelisted")
+		for _, v := range nonWhitelistedNodes {
+			require.Error(v.Register(consensus, v.SignedValidReRegistration), "register node from non whitelisted entity")
 		}
 	})
 
@@ -441,7 +457,7 @@ func testRegistryEntityNodes( // nolint: gocyclo
 	EnsureRegistryEmpty(t, backend)
 }
 
-func testRegistryRuntime(t *testing.T, backend api.Backend, consensus consensusAPI.Backend) common.Namespace {
+func testRegistryRuntime(t *testing.T, backend api.Backend, consensus consensusAPI.Backend) (common.Namespace, common.Namespace) {
 	require := require.New(t)
 
 	existingRuntimes, err := backend.GetRuntimes(context.Background(), consensusAPI.HeightLatest)
@@ -462,6 +478,29 @@ func testRegistryRuntime(t *testing.T, backend api.Backend, consensus consensusA
 
 	rt.MustRegister(t, backend, consensus)
 
+	// Runtime using entity whitelist node admission policy.
+	rtEW, err := NewTestRuntime([]byte("testRegistryRuntimeEntityWhitelist"), entity, false)
+	require.NoError(err, "NewTestRuntime entity whitelist")
+	nodeEntities, err := NewTestEntities(entityNodeSeed, 3)
+	require.NoError(err, "NewTestEntities with entity node seed")
+	rtEW.Runtime.AdmissionPolicy = api.RuntimeAdmissionPolicy{
+		EntityWhitelist: &api.EntityWhitelistRuntimeAdmissionPolicy{
+			Entities: map[signature.PublicKey]bool{
+				nodeEntities[1].Entity.ID: true,
+			},
+		},
+	}
+	rtMap[rtEW.Runtime.ID] = rtEW.Runtime
+
+	rtEW.MustRegister(t, backend, consensus)
+
+	// Runtime with unset node admission policy.
+	rtUnsetAdmissionPolicy, err := NewTestRuntime([]byte("testRegistryRuntimeUnsetAdmissionPolicy"), entity, false)
+	require.NoError(err, "NewTestRuntime unset admission policy")
+	rtUnsetAdmissionPolicy.Runtime.AdmissionPolicy = api.RuntimeAdmissionPolicy{}
+
+	rtUnsetAdmissionPolicy.MustNotRegister(t, backend, consensus)
+
 	// Register key manager runtime.
 	km, err := NewTestRuntime([]byte("testRegistryKM"), entity, true)
 	km.Runtime.Kind = api.KindKeyManager
@@ -481,7 +520,7 @@ func testRegistryRuntime(t *testing.T, backend api.Backend, consensus consensusA
 	// NOTE: There can be two runtimes registered here instead of one because the worker
 	//       tests that run before this register their own runtime and this runtime
 	//       cannot be deregistered.
-	require.Len(registeredRuntimes, len(existingRuntimes)+3, "registry has three new runtimes")
+	require.Len(registeredRuntimes, len(existingRuntimes)+4, "registry has four new runtimes")
 	for _, regRuntime := range registeredRuntimes {
 		if rtMap[regRuntime.ID] != nil {
 			require.EqualValues(rtMap[regRuntime.ID], regRuntime, "expected runtime is registered")
@@ -520,7 +559,7 @@ func testRegistryRuntime(t *testing.T, backend api.Backend, consensus consensusA
 
 	// No way to de-register the runtime, so it will be left there.
 
-	return rt.Runtime.ID
+	return rt.Runtime.ID, rtEW.Runtime.ID
 }
 
 // EnsureRegistryEmpty enforces that the registry has no entities or nodes

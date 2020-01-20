@@ -217,9 +217,9 @@ func (app *schedulerApplication) BeginBlock(ctx *abci.Context, request types.Req
 
 		kinds := []scheduler.CommitteeKind{
 			scheduler.KindComputeExecutor,
-			scheduler.KindStorage,
 			scheduler.KindComputeTxnScheduler,
 			scheduler.KindComputeMerge,
+			scheduler.KindStorage,
 		}
 		for _, kind := range kinds {
 			if err = app.electAllCommittees(ctx, request, epoch, beacon, entityStake, entitiesEligibleForReward, runtimes, nodes, kind); err != nil {

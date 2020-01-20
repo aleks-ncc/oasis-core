@@ -67,7 +67,7 @@ type CommitteeNode struct {
 type CommitteeKind uint8
 
 const (
-	// KindCompute is a compute committee.
+	// KindInvalid is an invalid committee.
 	KindInvalid CommitteeKind = 0
 
 	// KindComputeExecutor is an executor committee.

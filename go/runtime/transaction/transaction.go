@@ -24,8 +24,6 @@ var (
 	// cannot be found.
 	ErrNotFound = errors.New("transaction: not found")
 
-	errInvalidArtifactKind = errors.New("transaction: invalid artifact kind cannot be marshalled")
-
 	errMalformedArtifactKind = errors.New("transaction: malformed artifact kind")
 )
 
@@ -51,7 +49,7 @@ func (ak artifactKind) MarshalBinary() (data []byte, err error) {
 
 	// kindInvalid should not be marshaleld.
 	if ak == kindInvalid {
-		return nil, errInvalidArtifactKind
+		return nil, errMalformedArtifactKind
 	}
 
 	return
@@ -67,9 +65,6 @@ func (ak *artifactKind) UnmarshalBinary(data []byte) error {
 	switch kind {
 	case kindInput:
 	case kindOutput:
-	case kindInvalid:
-		// kindInvalid should not be unmarshalled.
-		return errInvalidArtifactKind
 	default:
 		return errMalformedArtifactKind
 	}
@@ -268,9 +263,7 @@ func (t *Tree) GetTransactions(ctx context.Context) ([]*Transaction, error) {
 	curTx.Empty()
 
 	var txs []*Transaction
-	i := 0
 	for it.Seek(txnKeyFmt.Encode()); it.Valid(); it.Next() {
-		i++
 		var decHash hash.Hash
 		var decKind artifactKind
 		if !txnKeyFmt.Decode(it.Key(), &decHash, &decKind) {

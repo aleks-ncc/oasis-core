@@ -45,12 +45,12 @@ const (
 
 // MarshalBinary encodes an artifact kind into binary form.
 func (ak artifactKind) MarshalBinary() (data []byte, err error) {
-	data = []byte{uint8(ak)}
-
 	// kindInvalid should not be marshaleld.
 	if ak == kindInvalid {
 		return nil, errMalformedArtifactKind
 	}
+
+	data = []byte{uint8(ak)}
 
 	return
 }

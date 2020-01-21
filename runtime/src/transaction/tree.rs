@@ -19,15 +19,14 @@ use crate::{
 #[derive(Debug)]
 #[repr(u8)]
 enum ArtifactKind {
-    _Invalid = 0,
-    Input = ARTIFACT_KIND_INPUT,
-    Output = ARTIFACT_KIND_OUTPUT,
+    Input = 1,
+    Output = 2,
 }
 
 // Workaround because rust doesn't support `as u8` inside match arms.
 // See https://github.com/rust-lang/rust/issues/44266
-const ARTIFACT_KIND_INPUT: u8 = 1;
-const ARTIFACT_KIND_OUTPUT: u8 = 2;
+const ARTIFACT_KIND_INPUT: u8 = ArtifactKind::Input as u8;
+const ARTIFACT_KIND_OUTPUT: u8 = ArtifactKind::Output as u8;
 
 /// Key format used for transaction artifacts.
 #[derive(Debug)]
@@ -52,7 +51,6 @@ impl KeyFormat for TxnKeyFormat {
         match self.kind {
             ArtifactKind::Input => atoms.push(vec![ARTIFACT_KIND_INPUT]),
             ArtifactKind::Output => atoms.push(vec![ARTIFACT_KIND_OUTPUT]),
-            ArtifactKind::_Invalid => panic!("transaction: will not encode invalid artifact kind"),
         }
     }
 

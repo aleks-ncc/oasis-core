@@ -98,7 +98,7 @@ func TestPoolSingleCommitment(t *testing.T) {
 
 	rt := &registry.Runtime{
 		ID:          rtID,
-		Kind:        registry.KindInvalid,
+		Kind:        registry.KindCompute,
 		TEEHardware: node.TEEHardwareInvalid,
 	}
 

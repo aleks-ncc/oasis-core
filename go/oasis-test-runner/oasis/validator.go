@@ -88,6 +88,8 @@ func (val *Validator) startNode() error {
 		args = args.addSentries(val.sentries).
 			addSentriesAsPersistentPeers(val.sentries).
 			tendermintDisablePeerExchange()
+	} else {
+		args = args.appendSeedNodes(val.net)
 	}
 
 	if len(val.net.validators) >= 1 && val == val.net.validators[0] {

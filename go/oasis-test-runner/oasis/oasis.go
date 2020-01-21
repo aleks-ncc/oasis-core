@@ -134,7 +134,7 @@ type Network struct {
 	entities       []*Entity
 	validators     []*Validator
 	runtimes       []*Runtime
-	keymanager     *Keymanager
+	keymanagers    []*Keymanager
 	storageWorkers []*Storage
 	computeWorkers []*Compute
 	sentries       []*Sentry
@@ -219,9 +219,9 @@ func (net *Network) Runtimes() []*Runtime {
 	return net.runtimes
 }
 
-// Keymanager returns the keymanager associated with the network.
-func (net *Network) Keymanager() *Keymanager {
-	return net.keymanager
+// Keymanager returns the keymanagers associated with the network.
+func (net *Network) Keymanagers() []*Keymanager {
+	return net.keymanagers
 }
 
 // StorageWorkers returns the storage worker nodes associated with the network.
@@ -266,13 +266,8 @@ func (net *Network) ClientController() *Controller {
 
 // NumRegisterNodes returns the number of all nodes that need to register.
 func (net *Network) NumRegisterNodes() int {
-	var keyManagers int
-	if net.keymanager != nil {
-		keyManagers = 1
-	}
-
 	return len(net.validators) +
-		keyManagers +
+		len(net.keymanagers) +
 		len(net.storageWorkers) +
 		len(net.computeWorkers) +
 		len(net.byzantine)
@@ -429,9 +424,9 @@ func (net *Network) Start() error {
 		time.Sleep(validatorStartDelay)
 	}
 
-	if net.keymanager != nil {
+	for _, km := range net.keymanagers {
 		net.logger.Debug("starting keymanager")
-		if err = net.keymanager.startNode(); err != nil {
+		if err = km.startNode(); err != nil {
 			net.logger.Error("failed to start keymanager node",
 				"err", err,
 			)
@@ -647,11 +642,11 @@ func (net *Network) makeGenesis() error {
 	for _, v := range net.runtimes {
 		args = append(args, v.toGenesisArgs()...)
 	}
-	if net.keymanager != nil {
-		if err := net.keymanager.provisionGenesis(); err != nil {
+	for _, v := range net.keymanagers {
+		if err := v.provisionGenesis(); err != nil {
 			return err
 		}
-		args = append(args, net.keymanager.toGenesisArgs()...)
+		args = append(args, v.toGenesisArgs()...)
 	}
 	if net.cfg.StakingGenesis != "" {
 		args = append(args, "--staking", net.cfg.StakingGenesis)

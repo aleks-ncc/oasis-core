@@ -89,16 +89,16 @@ const (
 // NeedsLeader returns if committee kind needs leader role.
 func (k CommitteeKind) NeedsLeader() (bool, error) {
 	switch k {
-	case KindInvalid:
-		return false, fmt.Errorf("scheduler: KindInvalid should not be queried for a leader")
 	case KindComputeExecutor:
 		return false, nil
+	case KindComputeTxnScheduler:
+		return true, nil
 	case KindComputeMerge:
 		return false, nil
 	case KindStorage:
 		return false, nil
 	default:
-		return true, nil
+		return false, fmt.Errorf("scheduler/NeedsLeader: unsupported committee kind %s", k)
 	}
 }
 
@@ -109,12 +109,12 @@ func (k CommitteeKind) String() string {
 		return "invalid"
 	case KindComputeExecutor:
 		return "executor"
-	case KindStorage:
-		return "storage"
 	case KindComputeTxnScheduler:
 		return "txn_scheduler"
 	case KindComputeMerge:
 		return "merge"
+	case KindStorage:
+		return "storage"
 	default:
 		return fmt.Sprintf("[unknown kind: %d]", k)
 	}

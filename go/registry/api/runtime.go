@@ -67,8 +67,6 @@ func (k RuntimeKind) String() string {
 // FromString deserializes a string into a RuntimeKind.
 func (k *RuntimeKind) FromString(str string) error {
 	switch strings.ToLower(str) {
-	case kindInvalid:
-		*k = KindInvalid
 	case kindCompute:
 		*k = KindCompute
 	case kindKeyManager:

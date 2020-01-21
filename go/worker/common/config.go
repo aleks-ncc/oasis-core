@@ -21,7 +21,7 @@ var (
 	// CfgClientPort configures the worker client port.
 	CfgClientPort = "worker.client.port"
 
-	cfgClientAddresses = "worker.client.addresses"
+	CfgClientAddresses = "worker.client.addresses"
 
 	// CfgSentryAddresses configures addresses of sentry nodes the worker
 	// should connect to.
@@ -98,10 +98,10 @@ func (c *Config) GetNodeAddresses() ([]node.Address, error) {
 	return addresses, nil
 }
 
-// newConfig creates a new worker config.
-func newConfig() (*Config, error) {
+// NewConfig creates a new worker config.
+func NewConfig() (*Config, error) {
 	// Parse register address overrides.
-	clientAddresses, err := configparser.ParseAddressList(viper.GetStringSlice(cfgClientAddresses))
+	clientAddresses, err := configparser.ParseAddressList(viper.GetStringSlice(CfgClientAddresses))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func newConfig() (*Config, error) {
 
 func init() {
 	Flags.Uint16(CfgClientPort, 9100, "Port to use for incoming gRPC client connections")
-	Flags.StringSlice(cfgClientAddresses, []string{}, "Address/port(s) to use for client connections when registering this node (if not set, all non-loopback local interfaces will be used)")
+	Flags.StringSlice(CfgClientAddresses, []string{}, "Address/port(s) to use for client connections when registering this node (if not set, all non-loopback local interfaces will be used)")
 
 	Flags.StringSlice(CfgSentryAddresses, []string{}, fmt.Sprintf("Address(es) of sentry node(s) to connect to (each address should have a corresponding certificate file set in %s)", CfgSentryCertFiles))
 	Flags.StringSlice(CfgSentryCertFiles, []string{}, fmt.Sprintf("Certificate file(s) of sentry node(s) to connect to (each certificate file should have a corresponding address set in %s)", CfgSentryAddresses))

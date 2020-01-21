@@ -205,7 +205,7 @@ func TestPoolSingleCommitmentTEE(t *testing.T) {
 
 	rt := &registry.Runtime{
 		ID:          rtID,
-		Kind:        registry.KindInvalid,
+		Kind:        registry.KindCompute,
 		TEEHardware: node.TEEHardwareIntelSGX,
 	}
 
@@ -442,7 +442,7 @@ func TestPoolSerialization(t *testing.T) {
 
 	rt := &registry.Runtime{
 		ID:          rtID,
-		Kind:        registry.KindInvalid,
+		Kind:        registry.KindCompute,
 		TEEHardware: node.TEEHardwareInvalid,
 	}
 
@@ -1105,7 +1105,7 @@ func generateMockCommittee(t *testing.T) (
 
 	rt = &registry.Runtime{
 		ID:          rtID,
-		Kind:        registry.KindInvalid,
+		Kind:        registry.KindCompute,
 		TEEHardware: node.TEEHardwareInvalid,
 	}
 

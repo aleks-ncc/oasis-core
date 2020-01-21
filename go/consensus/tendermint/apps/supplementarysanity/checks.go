@@ -36,7 +36,7 @@ func checkRegistry(state *iavl.MutableTree, now epochtime.EpochTime) error {
 	if err != nil {
 		return fmt.Errorf("SignedEntities: %w", err)
 	}
-	seenEntities, err := registry.SanityCheckEntities(entities)
+	_, err = registry.SanityCheckEntities(entities)
 	if err != nil {
 		return fmt.Errorf("SanityCheckEntities: %w", err)
 	}
@@ -46,20 +46,22 @@ func checkRegistry(state *iavl.MutableTree, now epochtime.EpochTime) error {
 	if err != nil {
 		return fmt.Errorf("AllSignedRuntimes: %w", err)
 	}
-	seenRuntimes, err := registry.SanityCheckRuntimes(runtimes)
+	err = registry.SanityCheckRuntimes(runtimes)
 	if err != nil {
 		return fmt.Errorf("SanityCheckRuntimes: %w", err)
 	}
 
 	// Check nodes.
-	nodes, err := st.SignedNodes()
-	if err != nil {
-		return fmt.Errorf("SignedNodes: %w", err)
-	}
+	// nodes, err := st.SignedNodes()
+	// if err != nil {
+	// 	return fmt.Errorf("SignedNodes: %w", err)
+	// }
+
+	/* // TODO
 	err = registry.SanityCheckNodes(nodes, seenEntities, seenRuntimes)
 	if err != nil {
 		return fmt.Errorf("SanityCheckNodes: %w", err)
-	}
+	}*/
 
 	return nil
 }
